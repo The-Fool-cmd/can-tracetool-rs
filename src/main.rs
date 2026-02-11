@@ -1,15 +1,10 @@
 use anyhow::{Context, Result};
 use std::fs::File;
 use std::io::Read;
-
-struct Frame {
-    timestamp: f64, // parsed timestamp
-    iface: String,  // interface name
-    id: u32,        // CAN ID (11/29-bit stored in u32)
-    data: Vec<u8>,  // payload bytes
-    raw: String,    // original trimmed line
-    line_no: usize, // 1-based line number
-}
+mod util;
+use util::CANFrame;
+use util::decode_hex_bytes;
+mod ui;
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect(); // CLI args
@@ -31,7 +26,7 @@ fn main() -> Result<()> {
     let file =
         File::open(filepath).with_context(|| format!("Failed to open input file: {}", filepath))?;
 
-    let mut frames: Vec<Frame> = Vec::new();
+    let mut frames: Vec<CANFrame> = Vec::new();
     let (valid_lines, invalid_lines, ignored_lines) = parse_file(file, &mut frames)?;
 
     println!(
@@ -42,7 +37,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn parse_file(mut file: File, frames: &mut Vec<Frame>) -> Result<(i32, i32, i32)> {
+fn parse_file(mut file: File, frames: &mut Vec<CANFrame>) -> Result<(i32, i32, i32)> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .with_context(|| "Failed to read file as UTF-8 text")?;
@@ -107,7 +102,7 @@ fn parse_file(mut file: File, frames: &mut Vec<Frame>) -> Result<(i32, i32, i32)
             }
         };
 
-        frames.push(Frame {
+        frames.push(CANFrame {
             timestamp,
             iface,
             id,
@@ -120,20 +115,4 @@ fn parse_file(mut file: File, frames: &mut Vec<Frame>) -> Result<(i32, i32, i32)
     }
 
     Ok((valid_lines, invalid_lines, ignored_lines))
-}
-
-fn decode_hex_bytes(s: &str) -> Result<Vec<u8>> {
-    if s.is_empty() {
-        return Ok(Vec::new()); // "123#"
-    }
-
-    // classic CAN: 0..8 bytes, even-length hex
-    if s.len() % 2 != 0 {
-        anyhow::bail!("hex payload has odd length");
-    }
-    if s.len() > 16 {
-        anyhow::bail!("hex payload too long (max 8 bytes)");
-    }
-
-    Ok(hex::decode(s).with_context(|| "invalid hex payload")?)
 }

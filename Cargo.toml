@@ -5,4 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.101"
+crossterm = "0.29.0"
 hex = "0.4.3"
+ratatui = "0.30.0"
